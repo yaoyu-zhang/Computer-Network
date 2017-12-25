@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 from matplotlib import rcParams
 from pylab import *
-myfont =  FontProperties(fname='/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',size=20)
-rcParams['axes.unicode_minus']=False #解决负号'-'显示为方块的问题
 
+myfont = FontProperties(fname='/usr/share/fonts/truetype/wqy/wqy-microhei.ttc', size=20)
+rcParams['axes.unicode_minus'] = False  # 解决负号'-'显示为方块的问题
 
 p = re.compile(
     r'^(?P<timestamp>[\d:.]+) IP \(.*, id (?P<id>\d+), offset (?P<offset>\d+), flags \[(?P<ip_flags>.*)\], proto (?P<proto>\w+) .*?, length (?P<ip_length>\d+).*\)$'
@@ -37,18 +37,20 @@ with sqlite3.connect(':memory:') as con:
     # IP分组携带不同协议的分组数 WHERE dst_ip=="101.5.65.255"
     res1_packet = con.execute(r'''SELECT proto, COUNT(proto)
                                   FROM tcpdumpout
-                                  
-                                  GROUP BY proto
-                                  
-                              ''').fetchall()#IP分组携带不同协议的分组数，饼状图
-    fig1=plt.figure(1)
-    labels=[res1_packet[0][0],res1_packet[3][0],res1_packet[2][0],res1_packet[1][0]]
-    sizes=[res1_packet[0][1],res1_packet[3][1],res1_packet[2][1],res1_packet[1][1]]
-    plt.axes(aspect='equal')
-    plt.title('IP protocal(pacekts)')
-    plt.pie(sizes,explode=[0,0,0,0],labels=labels,autopct='%1.1f%%',shadow=False,startangle=90)
-    plt.show()
 
+                                  GROUP BY proto
+
+                              ''').fetchall()  # IP分组携带不同协议的分组数，饼状图
+    fig1 = plt.figure(1)
+    labels = []
+    sizes = []
+    for i in range(len(res1_packet)):
+        labels.append(res1_packet[i][0])
+        sizes.append(res1_packet[i][1])
+    plt.axes(aspect='equal')
+    plt.title('IP protocal(packets)')
+    plt.pie(sizes, explode=[0 for x in range(len(res1_packet))], labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
+    plt.show()
     # IP分组携带不同协议的总数据量
     res1_len = con.execute(r'''SELECT proto, SUM(ip_length)
                               FROM tcpdumpout
@@ -56,11 +58,14 @@ with sqlite3.connect(':memory:') as con:
                            ''').fetchall()
     # ip分组携带不同协议的数据量，饼状图
     fig2 = plt.figure(2)
-    labels = [res1_len[0][0], res1_len[3][0], res1_len[2][0], res1_len[1][0]]
-    sizes = [res1_len[0][1], res1_len[3][1], res1_len[2][1], res1_len[1][1]]
+    labels = []
+    sizes = []
+    for i in range(len(res1_len)):
+        labels.append(res1_len[i][0])
+        sizes.append(res1_len[i][1])
     plt.axes(aspect='equal')
     plt.title('IP protocal(quantity of data)')
-    plt.pie(sizes, explode=[0, 0, 0, 0], labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
+    plt.pie(sizes, explode=[0 for x in range(len(res1_len))], labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
     plt.show()
 
     # 多少IP分组是片段
@@ -153,7 +158,7 @@ with sqlite3.connect(':memory:') as con:
     grid(True)
     show()
 
-    #tcp端口分布直方图ORDER BY COUNT(src_port) DESC
+    # tcp端口分布直方图ORDER BY COUNT(src_port) DESC
     res4_tcp = con.execute(r'''SELECT src_port
                                   FROM tcpdumpout
                                   WHERE proto=="TCP"
@@ -184,12 +189,12 @@ with sqlite3.connect(':memory:') as con:
                                       GROUP BY src_port 
                                       ORDER BY COUNT(src_port) DESC
                                           ''').fetchall()
-    res5_tcp=res5_tcp[0:10]
-    #前10端口数据报长度的累积分布
+    res5_tcp = res5_tcp[0:10]
+    # 前10端口数据报长度的累积分布
     for i in res5_tcp:
         res5_tcp_port = con.execute(r'''SELECT SUM(ip_length) 
                                        FROM tcpdumpout
-                                       WHERE proto=="TCP" AND src_port=='''+str(i[0])+'''
+                                       WHERE proto=="TCP" AND src_port==''' + str(i[0]) + '''
                                        GROUP BY id
                                        ORDER BY SUM(ip_length)
                                    ''').fetchall()
@@ -205,19 +210,19 @@ with sqlite3.connect(':memory:') as con:
         plot(c, b, linewidth=1.0)
         xlabel('packet length')
         ylabel('number')
-        title('tcp port '+str(i[0])+' packet cumulative distribution')
+        title('tcp port ' + str(i[0]) + ' packet cumulative distribution')
         grid(True)
         show()
 
-    #udp 前10名端口
+    # udp 前10名端口
     res5_udp = con.execute(r'''SELECT src_port, COUNT(src_port)
                                   FROM tcpdumpout
                                   WHERE proto=="UDP"
                                   GROUP BY src_port 
                                   ORDER BY COUNT(src_port) DESC
                                       ''').fetchall()
-    res5_udp=res5_udp[0:10]
-    #端口数据报长度的累积分布
+    res5_udp = res5_udp[0:10]
+    # 端口数据报长度的累积分布
     for i in res5_udp:
         res5_udp_port = con.execute(r'''SELECT SUM(ip_length) 
                                                FROM tcpdumpout
@@ -246,47 +251,29 @@ with sqlite3.connect(':memory:') as con:
                                   WHERE proto=="TCP"
                                   GROUP BY tcp_flags
                                   ''').fetchall()
-    a={} ;a["C"]=0;a["E"]=0;a["U"]=0;a["A"]=0;a["P"]=0;a["R"]=0;a["S"]=0;a["F"]=0;
-    del tcp_f[0];
+    a = {'C': 0, 'E': 0, 'A': 0, 'P': 0, 'R': 0, 'S': 0, 'F': 0}
+    del tcp_f[0]
     for i in tcp_f:
-        if('C' in i[0]):
-            a['C']=a['C']+i[1]
-        if ('E' in i[0]):
+        if 'C' in i[0]:
+            a['C'] = a['C'] + i[1]
+        if 'E' in i[0]:
             a['E'] = a['E'] + i[1]
-        if ('U' in i[0]):
+        if 'U' in i[0]:
             a['U'] = a['U'] + i[1]
-        if ('A' in i[0]):
+        if 'A' in i[0]:
             a['A'] = a['A'] + i[1]
-        if ('P' in i[0]):
+        if 'P' in i[0]:
             a['P'] = a['P'] + i[1]
-        if ('R' in i[0]):
+        if 'R' in i[0]:
             a['R'] = a['R'] + i[1]
-        if ('S' in i[0]):
+        if 'S' in i[0]:
             a['S'] = a['S'] + i[1]
-        if ('F' in i[0]):
+        if 'F' in i[0]:
             a['F'] = a['F'] + i[1]
     fig5 = plt.figure(5)
-    labels=list(a.keys());
-    sizes=list(a.values());
+    labels = list(a.keys())
+    sizes = list(a.values())
     plt.axes(aspect='equal')
     plt.title('tcp control (quantity of data)')
-    plt.pie(sizes,  labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
+    plt.pie(sizes, labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
     plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
