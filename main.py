@@ -11,13 +11,16 @@ rcParams['axes.unicode_minus'] = False  # 解决负号'-'显示为方块的问�
 
 p = re.compile(
     r'^(?P<timestamp>[\d:.]+) IP \(.*, id (?P<id>\d+), offset (?P<offset>\d+), flags \[(?P<ip_flags>.*)\], proto (?P<proto>\w+) .*?, length (?P<ip_length>\d+).*\)$'
-    r'(\s*^\s*(?P<src_ip>\d+.\d+.\d+.\d+).(?P<src_port>\d+) > (?P<dst_ip>\d+.\d+.\d+.\d+).(?P<dst_port>\d+):( Flags \[(?P<tcp_flags>[^,]+)\])?(, cksum [^,]+)?(, seq (?P<seqno>\d+:\d+))?(, ack (?P<ackno>\d+))?.*$)?',
+    r'(\s*^\s*(?P<src_ip>\d+.\d+.\d+.\d+).(?P<src_port>\d+) > (?P<dst_ip>\d+.\d+.\d+.\d+).(?P<dst_port>\d+):( Flags \[(?P<tcp_flags>[^,]+)\])?(, cksum [^,]+)?(, seq (?P<seqno>\d+(:\d+)?))?(, ack (?P<ackno>\d+))?.*$)?',
     re.M)
+p1 = re.compile(r'^(?P<timestamp>[\d:.]+) IP6 \(.*, next-header (?P<proto>\w+) .*? payload length: (?P<ip_length>\d+)\)'
+                r'(\s*^(?P<src_ip>[\da-f:]+).(?P<src_port>\d+) > (?P<dst_ip>[\da-f:]+).(?P<dst_port>\d+):( Flags \[(?P<tcp_flags>[UAPRSF.|none]+)\])?.*$)?',
+                re.M)
 
 # tcpdump -nnv ip >> tcpdump.out
 with open('tcpdump.out') as f:
     s = f.read()
-    s = list(p.finditer(s))
+    s = list(p1.finditer(s))
 
 with open('tcpdump.out.csv', 'w', newline='') as f:
     writer = csv.DictWriter(f, p.groupindex.keys())
@@ -27,19 +30,17 @@ with open('tcpdump.out.csv', 'w', newline='') as f:
 
 with sqlite3.connect(':memory:') as con:
     con.execute(f'''CREATE TABLE tcpdumpout
-                    ({','.join([x+' TEXT NULL' for x in p.groupindex.keys()])})
+                    ({','.join([x+' TEXT NULL' for x in p1.groupindex.keys()])})
                 ''')
     for m in s:
         con.execute(f'''INSERT INTO tcpdumpout VALUES
                         ({','.join(['"'+x+'"' if x else 'NULL' for x in m.groupdict().values()])})
                     ''')
 
-    # IP分组携带不同协议的分组数 WHERE dst_ip=="101.5.65.255"
-    res1_packet = con.execute(r'''SELECT proto, COUNT(proto)
+    # IP分组携带不同协议的分组数
+    res1_packet = con.execute(f'''SELECT proto, COUNT(proto)
                                   FROM tcpdumpout
-
                                   GROUP BY proto
-
                               ''').fetchall()  # IP分组携带不同协议的分组数，饼状图
     fig1 = plt.figure(1)
     labels = []
@@ -52,11 +53,11 @@ with sqlite3.connect(':memory:') as con:
     plt.pie(sizes, explode=[0 for x in range(len(res1_packet))], labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
     plt.show()
     # IP分组携带不同协议的总数据量
-    res1_len = con.execute(r'''SELECT proto, SUM(ip_length)
+    res1_len = con.execute(f'''SELECT proto, SUM(ip_length)
                               FROM tcpdumpout
                               GROUP BY proto
                            ''').fetchall()
-    # ip分组携带不同协议的数据量，饼状图
+    # IP分组携带不同协议的数据量
     fig2 = plt.figure(2)
     labels = []
     sizes = []
@@ -74,6 +75,7 @@ with sqlite3.connect(':memory:') as con:
                                 WHERE ip_flags=="MF"
                             ''').fetchall()
     # 多少IP数据报被分片
+
     res2_packet = con.execute(r'''SELECT COUNT(DISTINCT id)
                                   FROM tcpdumpout
                                   WHERE ip_flags=="MF"
@@ -277,3 +279,21 @@ with sqlite3.connect(':memory:') as con:
     plt.title('tcp control (quantity of data)')
     plt.pie(sizes, labels=labels, autopct='%1.1f%%', shadow=False, startangle=90)
     plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
